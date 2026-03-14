@@ -1,0 +1,49 @@
+input,expected_id
+San Francisco,P1
+San Fran,P1
+SF,P1
+San Jose,P2
+SJ,P2
+San Sebastian,P3
+San Sebastián,P3
+Donostia,P3
+New York,P4
+NYC,P4
+New York City,P4
+London,P5
+Greater London,P5
+Londres,P6
+London (es),P6
+Paris,P7
+Paris,France,P7
+Sao Paulo,P8
+São Paulo,P8
+Saint Petersburg,P9
+St Petersburg,P9
+St. Petersburg,P9
+St. Louis,P10
+Saint Louis,P10
+Munich,P11
+Muenchen,P11
+München,P11
+Beijing,P12
+Peking,P12
+Cambridge, NONE
+Cambridge MA,P13
+Cambridge, UK,P14
+Cambridge MA,P13
+York,P11
+City of York,P11
+Los Angeles,P19
+LA,P19
+L.A.,P19
+UnknownPlace,NONE
+San Sebastian de los Reyes,P20
+San Sebastián de los Reyes,P20
+San Sebastian de los Reyes,P20
+San Sebastain,P3
+Londres,P6
+Saint Petersburg,P9
+St Louis,P10
+San Jose, P2
+NewYork,P4
