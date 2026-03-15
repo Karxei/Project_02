@@ -1,25 +1,63 @@
-```python
-# app.py
+# app.py (improved)
+"""
+Enhanced reconciliation service with:
+- multi-field scoring (name, country, region, type)
+- improved fuzzy matching (jaro-winkler via jellyfish, RapidFuzz fallback/optional)
+- suggest endpoint with simple prefix index
+- configurable match threshold and weights
+- dev reload route to reload CSV without restarting
+- clearer logging for debugging and evaluation
+"""
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import csv
 import unicodedata
 import re
 import json
+import logging
 from typing import List, Dict, Tuple
 from difflib import SequenceMatcher
+import os
 
-# Optional: jellyfish provides Jaro-Winkler; if not installed, fallback to SequenceMatcher
+# Optional libraries
 try:
     import jellyfish
     _HAS_JELLYFISH = True
 except Exception:
     _HAS_JELLYFISH = False
 
+try:
+    from rapidfuzz import fuzz as rf_fuzz
+    _HAS_RAPIDFUZZ = True
+except Exception:
+    _HAS_RAPIDFUZZ = False
+
+# Configuration
+CSV_PATH = os.getenv('PLACES_CSV', 'places.csv')
+HOST = os.getenv('APP_HOST', '127.0.0.1')
+PORT = int(os.getenv('APP_PORT', 5000))
+DEBUG = os.getenv('APP_DEBUG', 'true').lower() in ('1', 'true', 'yes')
+
+# Matching configuration
+MATCH_THRESHOLD = float(os.getenv('MATCH_THRESHOLD', 0.95))  # when to mark "match": true
+DEFAULT_WEIGHTS = {
+    'name': float(os.getenv('WEIGHT_NAME', 0.65)),
+    'country': float(os.getenv('WEIGHT_COUNTRY', 0.15)),
+    'region': float(os.getenv('WEIGHT_REGION', 0.12)),
+    'type': float(os.getenv('WEIGHT_TYPE', 0.08))
+}
+SUGGEST_PREFIX_SCORE = 0.95
+
+# Setup logging
+logging.basicConfig(level=logging.DEBUG if DEBUG else logging.INFO)
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
 CORS(app)
 
-CSV_PATH = 'places.csv'
+# In-memory data
+ITEMS: List[Dict] = []
+_PREFIX_INDEX: Dict[str, List[Dict]] = {}  # simple prefix -> list of items (for suggest)
 
 # ---------- Utilities ----------
 
@@ -29,7 +67,6 @@ def normalize_text(s: str) -> str:
     s = str(s).strip().lower()
     s = unicodedata.normalize('NFKD', s)
     s = ''.join(ch for ch in s if not unicodedata.combining(ch))
-    # keep letters, numbers, hyphen, dot, comma and spaces
     s = re.sub(r'[^\w\s\-\.\,]', ' ', s)
     s = re.sub(r'\s+', ' ', s).strip()
     return s
@@ -61,10 +98,25 @@ def jaro_winkler(a: str, b: str) -> float:
         except Exception:
             return seq_ratio(a, b)
     else:
-        # fallback: use sequence matcher as a conservative substitute
         return seq_ratio(a, b)
 
-# Name-level combined scoring (uses token overlap, sequence ratio and Jaro-Winkler)
+def rapidfuzz_ratio(a: str, b: str) -> float:
+    """
+    Use RapidFuzz token_sort_ratio if available for robust fuzzy matching.
+    Returns value in [0.0, 1.0].
+    """
+    if not a or not b:
+        return 0.0
+    if _HAS_RAPIDFUZZ:
+        try:
+            # token_sort_ratio returns 0-100
+            return rf_fuzz.token_sort_ratio(a, b) / 100.0
+        except Exception:
+            return seq_ratio(a, b)
+    else:
+        return seq_ratio(a, b)
+
+# Combined name similarity using multiple measures
 def combined_name_score(query: str, candidate: str) -> float:
     nq = normalize_text(query)
     nc = normalize_text(candidate)
@@ -73,33 +125,37 @@ def combined_name_score(query: str, candidate: str) -> float:
     if nq == nc:
         return 1.0
 
-    # tokens and measures
     t_q = tokens(nq)
     t_c = tokens(nc)
     j = jaccard(t_q, t_c)
     s = seq_ratio(nq, nc)
     jw = jaro_winkler(nq, nc)
+    rf = rapidfuzz_ratio(nq, nc)
 
-    # weight token overlap more for multi-word names
-    weight_j = 0.55 if (len(t_q) > 1 or len(t_c) > 1) else 0.35
-    weight_s = 0.25
-    weight_jw = 1.0 - (weight_j + weight_s)
-    base = weight_j * j + weight_s * s + weight_jw * jw
+    # Combine measures: give token overlap more weight for multi-word names,
+    # and include RapidFuzz/jaro as additional signals.
+    weight_j = 0.50 if (len(t_q) > 1 or len(t_c) > 1) else 0.30
+    weight_s = 0.15
+    weight_jw = 0.15
+    weight_rf = 1.0 - (weight_j + weight_s + weight_jw)
+    base = weight_j * j + weight_s * s + weight_jw * jw + weight_rf * rf
 
     # substring/prefix boost for abbreviations or short forms
     if nq in nc or nc in nq:
         return max(base, 0.85)
 
-    return base
+    return max(0.0, min(1.0, base))
 
-# ---------- Load CSV ----------
+# ---------- CSV loading and prefix index ----------
 
 def load_items_from_csv(path: str = CSV_PATH) -> List[Dict]:
     items = []
+    if not os.path.exists(path):
+        logger.warning("CSV file not found: %s", path)
+        return items
     with open(path, encoding='utf-8') as fh:
         reader = csv.DictReader(fh)
         for row in reader:
-            # support both 'aliases' and 'alt_names' header names
             alt_raw = row.get('aliases') or row.get('alt_names') or ''
             alt_list = [a.strip() for a in alt_raw.split(';') if a.strip()]
             items.append({
@@ -111,24 +167,42 @@ def load_items_from_csv(path: str = CSV_PATH) -> List[Dict]:
                 'aliases': alt_list,
                 'description': (row.get('description') or '').strip()
             })
+    logger.info("Loaded %d items from %s", len(items), path)
     return items
 
-ITEMS = load_items_from_csv()
+def build_prefix_index(items: List[Dict], max_prefix_len: int = 6):
+    """
+    Build a simple prefix index mapping normalized prefixes to items.
+    Only indexes the primary name and aliases for quick suggest.
+    """
+    global _PREFIX_INDEX
+    _PREFIX_INDEX = {}
+    for it in items:
+        candidates = [it.get('name','')] + it.get('aliases', [])
+        for cand in candidates:
+            n = normalize_text(cand)
+            # index prefixes up to max_prefix_len characters (or tokens)
+            for L in range(1, min(len(n), max_prefix_len) + 1):
+                pref = n[:L]
+                _PREFIX_INDEX.setdefault(pref, []).append(it)
+    logger.debug("Built prefix index with %d keys", len(_PREFIX_INDEX))
+
+# Initialize ITEMS and prefix index
+def _init_data():
+    global ITEMS
+    ITEMS = load_items_from_csv(CSV_PATH)
+    build_prefix_index(ITEMS)
+
+_init_data()
 
 # ---------- Matching (multi-field) ----------
 
 def best_name_match_score(query: str, item: Dict) -> Tuple[float, str]:
-    """
-    Compute best name-level score between query and the item's name/aliases.
-    Returns (score, matched_string)
-    """
     best = 0.0
     best_str = item.get('name','')
-    # primary name
     s = combined_name_score(query, item.get('name',''))
     if s > best:
         best = s; best_str = item.get('name','')
-    # aliases
     for alt in item.get('aliases', []):
         s2 = combined_name_score(query, alt)
         if s2 > best:
@@ -136,10 +210,6 @@ def best_name_match_score(query: str, item: Dict) -> Tuple[float, str]:
     return best, best_str
 
 def field_match_boost(query_tokens: List[str], field_value: str) -> float:
-    """
-    Simple heuristic: if tokens from query match tokens in a field (country/region/type),
-    return a boost in [0,1]. Exact match -> 1. Partial overlap -> fraction.
-    """
     if not field_value:
         return 0.0
     ftoks = tokens(field_value)
@@ -151,36 +221,19 @@ def field_match_boost(query_tokens: List[str], field_value: str) -> float:
     return len(inter) / len(ftoks)
 
 def item_score(query: str, item: Dict, weights: Dict = None) -> Tuple[float, Dict]:
-    """
-    Compute an overall score for an item given a free-text query.
-    We combine:
-      - name_score (from combined_name_score) [primary]
-      - country match boost
-      - region match boost
-      - type match boost
-    We also consider whether the query explicitly contains a country/region token.
-    Returns (score, details)
-    """
     if weights is None:
-        weights = {
-            'name': 0.70,
-            'country': 0.12,
-            'region': 0.10,
-            'type': 0.08
-        }
+        weights = DEFAULT_WEIGHTS
 
     nq = normalize_text(query)
     q_toks = tokens(nq)
 
     name_score, matched_str = best_name_match_score(query, item)
 
-    # field boosts based on token overlap
     country_boost = field_match_boost(q_toks, item.get('country',''))
     region_boost = field_match_boost(q_toks, item.get('region',''))
     type_boost = field_match_boost(q_toks, item.get('type',''))
 
-    # If query explicitly contains the exact country/region/type string, give stronger boost
-    # (exact substring match)
+    # stronger boost if exact substring present
     if item.get('country') and normalize_text(item.get('country')) in nq:
         country_boost = max(country_boost, 1.0)
     if item.get('region') and normalize_text(item.get('region')) in nq:
@@ -188,7 +241,6 @@ def item_score(query: str, item: Dict, weights: Dict = None) -> Tuple[float, Dic
     if item.get('type') and normalize_text(item.get('type')) in nq:
         type_boost = max(type_boost, 1.0)
 
-    # Combine weighted
     score = (
         weights['name'] * name_score +
         weights['country'] * country_boost +
@@ -196,7 +248,6 @@ def item_score(query: str, item: Dict, weights: Dict = None) -> Tuple[float, Dic
         weights['type'] * type_boost
     )
 
-    # Ensure score in [0,1]
     score = max(0.0, min(1.0, score))
 
     details = {
@@ -208,9 +259,6 @@ def item_score(query: str, item: Dict, weights: Dict = None) -> Tuple[float, Dic
     return score, {**details, 'matched_string': matched_str}
 
 def find_matches(query: str, limit: int = 5, cutoff: float = 0.55) -> List[Tuple[float, Dict, Dict]]:
-    """
-    Returns list of tuples: (score, item, details)
-    """
     if not query:
         return []
     scored = []
@@ -224,29 +272,38 @@ def find_matches(query: str, limit: int = 5, cutoff: float = 0.55) -> List[Tuple
 # ---------- Suggest endpoint (prefix search) ----------
 
 def suggest_entities(prefix: str, limit: int = 10) -> List[Dict]:
-    """
-    Simple prefix-based suggest using normalized tokens.
-    Returns list of dicts with id, name, score.
-    """
     if not prefix:
         return []
     npref = normalize_text(prefix)
     ptoks = tokens(npref)
     suggestions = []
-    for item in ITEMS:
+    # Use prefix index for quick candidates
+    candidates = []
+    # try exact prefix keys (progressively shorter)
+    for L in range(len(npref), 0, -1):
+        key = npref[:L]
+        if key in _PREFIX_INDEX:
+            candidates.extend(_PREFIX_INDEX[key])
+            break
+    # fallback to scanning all items if index miss
+    if not candidates:
+        candidates = ITEMS
+
+    seen_ids = set()
+    for item in candidates:
+        if item.get('id') in seen_ids:
+            continue
+        seen_ids.add(item.get('id'))
         name_norm = normalize_text(item.get('name',''))
-        # quick prefix check on name
         score = 0.0
         if name_norm.startswith(npref):
-            score = 0.95
+            score = SUGGEST_PREFIX_SCORE
         else:
-            # check tokens overlap
             name_toks = tokens(name_norm)
             j = jaccard(ptoks, name_toks)
             if j > 0:
                 score = 0.6 + 0.4 * j
             else:
-                # check aliases
                 for alt in item.get('aliases', []):
                     alt_norm = normalize_text(alt)
                     if alt_norm.startswith(npref):
@@ -271,17 +328,20 @@ def suggest_entities(prefix: str, limit: int = 10) -> List[Dict]:
 
 # ---------- API endpoints ----------
 
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "ok", "items": len(ITEMS)})
+
 @app.route('/service', methods=['GET', 'POST'])
 def service_metadata():
-    # Provide metadata including preview template and properties for OpenRefine
     return jsonify({
         "name": "Places Reconciliation (Enhanced)",
         "identifierSpace": "http://example.org/places",
         "schemaSpace": "http://example.org/schema",
-        "view": {"url": "http://127.0.0.1:5000/view/{{id}}"},
+        "view": {"url": f"http://{HOST}:{PORT}/view/{{{{id}}}}"},
         "defaultTypes": [{"id":"Place","name":"Place"}],
         "preview": {
-            "url": "http://127.0.0.1:5000/view/{{id}}",
+            "url": f"http://{HOST}:{PORT}/view/{{{{id}}}}",
             "width": 400,
             "height": 200
         },
@@ -312,15 +372,8 @@ def view_entity(entity_id):
 
 @app.route('/reconcile', methods=['GET', 'POST'])
 def reconcile():
-    """
-    Handles:
-      - Batch queries via {"queries": {...}}
-      - Single query via JSON or GET
-    Returns results compatible with OpenRefine reconciliation API.
-    """
     payload = request.get_json(silent=True)
 
-    # If payload is None, check for form-encoded 'queries' parameter
     if payload is None:
         if 'queries' in request.form:
             try:
@@ -354,7 +407,7 @@ def reconcile():
                     "id": m[1].get('id'),
                     "name": m[1].get('name'),
                     "score": int(round(m[0] * 100)),
-                    "match": m[0] == 1.0,
+                    "match": m[0] >= MATCH_THRESHOLD,
                     "type": [{"id":"Place","name":"Place"}],
                     "description": m[1].get('description',''),
                     "metadata": {
@@ -382,7 +435,7 @@ def reconcile():
             "id": m[1].get('id'),
             "name": m[1].get('name'),
             "score": int(round(m[0] * 100)),
-            "match": m[0] == 1.0,
+            "match": m[0] >= MATCH_THRESHOLD,
             "type": [{"id":"Place","name":"Place"}],
             "description": m[1].get('description',''),
             "metadata": {
@@ -396,24 +449,25 @@ def reconcile():
 
 @app.route('/suggest', methods=['GET'])
 def suggest():
-    """
-    Simple suggest endpoint:
-      - q: query prefix
-      - limit: number of suggestions
-    Returns a JSON object with 'result' list compatible with OpenRefine's suggest.
-    """
     q = request.args.get('q', '')
     limit = int(request.args.get('limit', 10))
     suggestions = suggest_entities(q, limit=limit)
     return jsonify({"result": suggestions})
 
+# Dev-only: reload items without restarting server
+@app.route('/_reload_items', methods=['POST'])
+def _reload_items():
+    global ITEMS
+    ITEMS = load_items_from_csv(CSV_PATH)
+    build_prefix_index(ITEMS)
+    return jsonify({"status": "reloaded", "count": len(ITEMS)})
+
 # ---------- Run ----------
 
 if __name__ == '__main__':
-    # Reload ITEMS if CSV changes while developing
     try:
-        ITEMS = load_items_from_csv()
-    except Exception:
-        ITEMS = []
-    app.run(host='127.0.0.1', port=5000, debug=True)
-```
+        _init_data()
+    except Exception as e:
+        logger.exception("Failed to initialize data: %s", e)
+    app.run(host=HOST, port=PORT, debug=DEBUG)
+
