@@ -6,16 +6,20 @@ to design, build, and evaluate a complete software artefact.
 
 ---
 
-## 📂 Project Structure
+# Setup
+1. Create a Python 3 venv and activate it:
+   python3 -m venv venv
+   source venv/bin/activate
 
-The repository includes:
+2. Install dependencies:
+   pip install -r requirements.txt
 
-- All Python source files used in the project  
-- Supporting modules and assets  
-- Documentation and report materials  
-- A `requirements.txt` file for recreating the development environment  
+3. Set your OpenAI API key:
+   export OPENAI_API_KEY="sk-..."
 
-> **Note:** The `venv` folder is intentionally **not** included in the repository.
-> Virtual environments should not be uploaded to GitHub because they are system‑specific and can be recreated easily.
+4. Run the app:
+   python app.py
 
----
+5. Test endpoints (in a second terminal):
+   curl http://127.0.0.1:5000/health
+   curl "http://127.0.0.1:5000/reconcile?query=London%20England&limit=5"
