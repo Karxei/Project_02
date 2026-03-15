@@ -1,19 +1,8 @@
 # app.py
+
 """
 Reconciliation service with hybrid matching (string + OpenAI embeddings) and Annoy index.
-Features:
-- Multi-field string scoring (Jaro-Winkler, RapidFuzz, SequenceMatcher, Jaccard)
-- OpenAI embedding integration with caching (embeddings.npz)
-- Annoy approximate nearest neighbor index (ann_index.ann) with metadata
-- Hybrid scoring: combine string_score and embed_score (tunable)
-- Prefix index and token blocking for performance
-- Data extension endpoints (POST/PUT/DELETE) protected by ADMIN_TOKEN
-- Dev endpoints: /health, /_reload_items
-- Caching for query embeddings and recent results (TTL)
-Notes:
-- Set OPENAI_API_KEY in environment or .env
-- Set ADMIN_TOKEN in environment to protect write endpoints
-- Do not commit secrets to source control
+This file is compatible with openai>=1.0.0 and older openai clients.
 """
 import os
 import csv
@@ -27,7 +16,7 @@ from typing import List, Dict, Tuple, Optional
 from flask import Flask, request, jsonify, abort
 from flask_cors import CORS
 
-# Optional similarity libs
+# Similarity utilities
 from difflib import SequenceMatcher
 try:
     import jellyfish
@@ -41,7 +30,7 @@ try:
 except Exception:
     _HAS_RAPIDFUZZ = False
 
-# Embedding and index libs
+# Numeric and index libraries
 import numpy as np
 try:
     from annoy import AnnoyIndex
@@ -49,16 +38,26 @@ try:
 except Exception:
     _HAS_ANNOY = False
 
+# OpenAI client (support both new and legacy clients)
 try:
     import openai
     _HAS_OPENAI = True
 except Exception:
+    openai = None
     _HAS_OPENAI = False
 
-# Caching
+# Try to detect new OpenAI client class (openai>=1.0.0)
+try:
+    from openai import OpenAI as OpenAIClient  # type: ignore
+    _OPENAI_NEW_CLIENT = True
+except Exception:
+    OpenAIClient = None
+    _OPENAI_NEW_CLIENT = False
+
+# Caching utilities
 from cachetools import TTLCache, cached
 
-# dotenv for local .env support
+# dotenv support for local .env files
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -69,7 +68,6 @@ except Exception:
 CSV_PATH = os.getenv("PLACES_CSV", "places.csv")
 EMBEDDINGS_PATH = os.getenv("EMBEDDINGS_PATH", "embeddings.npz")
 ANN_INDEX_PATH = os.getenv("ANN_INDEX_PATH", "ann_index.ann")
-ANN_META_PATH = os.getenv("ANN_META_PATH", "ann_index_meta.json")
 
 OPENAI_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", None)
@@ -79,15 +77,17 @@ HOST = os.getenv("APP_HOST", "127.0.0.1")
 PORT = int(os.getenv("APP_PORT", 5000))
 DEBUG = os.getenv("APP_DEBUG", "true").lower() in ("1", "true", "yes")
 
-# Scoring weights
-STRING_WEIGHT = float(os.getenv("STRING_WEIGHT", 0.6))  # weight for string score
-EMBED_WEIGHT = float(os.getenv("EMBED_WEIGHT", 0.4))    # weight for embedding score
+# Scoring weights and thresholds
+STRING_WEIGHT = float(os.getenv("STRING_WEIGHT", 0.6))
+EMBED_WEIGHT = float(os.getenv("EMBED_WEIGHT", 0.4))
 MATCH_THRESHOLD = float(os.getenv("MATCH_THRESHOLD", 0.95))
 
-# Annoy params
-ANNOY_METRIC = os.getenv("ANNOY_METRIC", "angular")  # angular ~ cosine
+# Annoy parameters
+ANNOY_METRIC = os.getenv("ANNOY_METRIC", "angular")
 ANNOY_TREES = int(os.getenv("ANNOY_TREES", 10))
-EMBED_DIM = int(os.getenv("EMBED_DIM", 1536))  # default for many OpenAI models; will be validated
+
+# Embedding dimension default (will be updated after embeddings are computed/loaded)
+EMBED_DIM = int(os.getenv("EMBED_DIM", 1536))
 
 # Caches
 QUERY_EMBED_CACHE = TTLCache(maxsize=1024, ttl=60 * 60)  # 1 hour
@@ -102,16 +102,17 @@ app = Flask(__name__)
 CORS(app)
 
 # In-memory structures
-ITEMS: List[Dict] = []  # list of item dicts loaded from CSV or added
+ITEMS: List[Dict] = []
 _PREFIX_INDEX: Dict[str, List[Dict]] = {}
-_ID_TO_INDEX: Dict[str, int] = {}  # mapping from item id to embedding row index
+_ID_TO_INDEX: Dict[str, int] = {}
 _EMBEDDINGS: Optional[np.ndarray] = None
 _ANN_INDEX: Optional[AnnoyIndex] = None
 _ANN_LOCK = threading.Lock()
 
-# ---------------- Utilities ----------------
+# ---------------- Text utilities ----------------
 
 def normalize_text(s: Optional[str]) -> str:
+    """Normalize text: strip, lowercase, remove diacritics, keep basic punctuation."""
     if s is None:
         return ""
     s = str(s).strip().lower()
@@ -122,9 +123,11 @@ def normalize_text(s: Optional[str]) -> str:
     return s
 
 def tokens(s: str) -> List[str]:
+    """Return normalized tokens for a string."""
     return [t for t in normalize_text(s).split(" ") if t]
 
 def jaccard(a: List[str], b: List[str]) -> float:
+    """Jaccard similarity between token lists."""
     if not a and not b:
         return 0.0
     set_a, set_b = set(a), set(b)
@@ -135,11 +138,13 @@ def jaccard(a: List[str], b: List[str]) -> float:
     return len(inter) / len(union)
 
 def seq_ratio(a: str, b: str) -> float:
+    """SequenceMatcher ratio fallback."""
     if not a or not b:
         return 0.0
     return SequenceMatcher(None, a, b).ratio()
 
 def jaro_winkler(a: str, b: str) -> float:
+    """Jaro-Winkler similarity if available, else SequenceMatcher."""
     if not a or not b:
         return 0.0
     if _HAS_JELLYFISH:
@@ -150,6 +155,7 @@ def jaro_winkler(a: str, b: str) -> float:
     return seq_ratio(a, b)
 
 def rapidfuzz_ratio(a: str, b: str) -> float:
+    """RapidFuzz token_sort_ratio if available, else SequenceMatcher."""
     if not a or not b:
         return 0.0
     if _HAS_RAPIDFUZZ:
@@ -160,6 +166,7 @@ def rapidfuzz_ratio(a: str, b: str) -> float:
     return seq_ratio(a, b)
 
 def combined_name_score(query: str, candidate: str) -> float:
+    """Combine token overlap, sequence ratio, jaro-winkler and rapidfuzz into a single name score."""
     nq = normalize_text(query)
     nc = normalize_text(candidate)
     if not nq or not nc:
@@ -180,9 +187,10 @@ def combined_name_score(query: str, candidate: str) -> float:
         return max(base, 0.85)
     return max(0.0, min(1.0, base))
 
-# ---------------- CSV Loading and Prefix Index ----------------
+# ---------------- CSV loading and prefix index ----------------
 
 def load_items_from_csv(path: str = CSV_PATH) -> List[Dict]:
+    """Load items from CSV into a list of dicts."""
     items = []
     if not os.path.exists(path):
         logger.warning("CSV not found: %s", path)
@@ -205,6 +213,7 @@ def load_items_from_csv(path: str = CSV_PATH) -> List[Dict]:
     return items
 
 def build_prefix_index(items: List[Dict], max_prefix_len: int = 6):
+    """Build a simple prefix index for quick suggest lookups."""
     global _PREFIX_INDEX
     _PREFIX_INDEX = {}
     for it in items:
@@ -216,47 +225,68 @@ def build_prefix_index(items: List[Dict], max_prefix_len: int = 6):
                 _PREFIX_INDEX.setdefault(pref, []).append(it)
     logger.debug("Built prefix index with %d keys", len(_PREFIX_INDEX))
 
-# ---------------- Embeddings and Annoy Index ----------------
+# ---------------- OpenAI client compatibility helpers ----------------
 
 def openai_client_setup():
+    """
+    Return a client object compatible with both new and legacy OpenAI clients.
+    For new client (openai>=1.0.0) this returns an OpenAIClient instance.
+    For legacy client this returns the openai module (with openai.api_key set).
+    """
+    global _HAS_OPENAI, _OPENAI_NEW_CLIENT, OpenAIClient
     if not _HAS_OPENAI:
         raise RuntimeError("openai package not installed")
+    # New-style client
+    if _OPENAI_NEW_CLIENT and OpenAIClient is not None:
+        # instantiate client with provided API key if available
+        if OPENAI_API_KEY:
+            return OpenAIClient(api_key=OPENAI_API_KEY)
+        # fallback to default behavior (env var)
+        return OpenAIClient()
+    # Legacy module-level client
     if OPENAI_API_KEY:
         openai.api_key = OPENAI_API_KEY
-    else:
-        # rely on environment variable or default client behavior
-        if not os.getenv("OPENAI_API_KEY"):
-            logger.warning("OPENAI_API_KEY not set; embedding calls will fail if attempted")
+    return openai
 
 def compute_embeddings_for_texts(texts: List[str], batch_size: int = 16) -> np.ndarray:
     """
     Compute embeddings for a list of texts using OpenAI embeddings API.
-    Returns a numpy array of shape (len(texts), dim).
+    Supports both new and legacy OpenAI clients.
+    Returns numpy array shape (len(texts), dim).
     """
     if not _HAS_OPENAI:
         raise RuntimeError("openai client not available")
-    openai_client_setup()
+    client = openai_client_setup()
     all_embs = []
     for i in range(0, len(texts), batch_size):
         batch = texts[i:i + batch_size]
         try:
-            resp = openai.Embedding.create(model=OPENAI_MODEL, input=batch)
-            for d in resp["data"]:
-                all_embs.append(d["embedding"])
+            if _OPENAI_NEW_CLIENT and hasattr(client, "embeddings"):
+                # new client: client.embeddings.create(...)
+                resp = client.embeddings.create(model=OPENAI_MODEL, input=batch)
+                # resp.data is a list of objects with .embedding
+                for d in resp.data:
+                    all_embs.append(d.embedding)
+            else:
+                # legacy client: openai.Embedding.create(...)
+                resp = client.Embedding.create(model=OPENAI_MODEL, input=batch)  # type: ignore
+                for d in resp["data"]:
+                    all_embs.append(d["embedding"])
         except Exception as e:
             logger.exception("OpenAI embedding call failed: %s", e)
-            # fallback: zero vectors
-            dim = EMBED_DIM
+            # fallback: zero vectors for batch
             for _ in batch:
-                all_embs.append([0.0] * dim)
+                all_embs.append([0.0] * EMBED_DIM)
     arr = np.array(all_embs, dtype=np.float32)
     return arr
 
 def save_embeddings(ids: List[str], embeddings: np.ndarray, path: str = EMBEDDINGS_PATH):
+    """Persist embeddings and ids to a compressed npz file."""
     np.savez_compressed(path, ids=np.array(ids), embeddings=embeddings)
     logger.info("Saved embeddings to %s", path)
 
 def load_embeddings(path: str = EMBEDDINGS_PATH) -> Tuple[List[str], Optional[np.ndarray]]:
+    """Load persisted embeddings if available."""
     if not os.path.exists(path):
         return [], None
     data = np.load(path, allow_pickle=True)
@@ -266,6 +296,7 @@ def load_embeddings(path: str = EMBEDDINGS_PATH) -> Tuple[List[str], Optional[np
     return ids, embeddings
 
 def build_annoy_index(embeddings: np.ndarray, dim: int, path: str = ANN_INDEX_PATH, trees: int = ANNOY_TREES) -> AnnoyIndex:
+    """Build and save an Annoy index from embeddings."""
     if not _HAS_ANNOY:
         raise RuntimeError("annoy not installed")
     idx = AnnoyIndex(dim, metric=ANNOY_METRIC)
@@ -277,6 +308,7 @@ def build_annoy_index(embeddings: np.ndarray, dim: int, path: str = ANN_INDEX_PA
     return idx
 
 def load_annoy_index(dim: int, path: str = ANN_INDEX_PATH) -> Optional[AnnoyIndex]:
+    """Load an existing Annoy index from disk."""
     if not _HAS_ANNOY:
         return None
     if not os.path.exists(path):
@@ -289,16 +321,16 @@ def load_annoy_index(dim: int, path: str = ANN_INDEX_PATH) -> Optional[AnnoyInde
 # ---------------- Initialization ----------------
 
 def initialize_all():
-    global ITEMS, _EMBEDDINGS, _ANN_INDEX, _ID_TO_INDEX
+    """Load CSV, build prefix index, load or compute embeddings, and build/load Annoy index."""
+    global ITEMS, _EMBEDDINGS, _ANN_INDEX, _ID_TO_INDEX, EMBED_DIM
     ITEMS = load_items_from_csv(CSV_PATH)
     build_prefix_index(ITEMS)
     ids, embeddings = load_embeddings(EMBEDDINGS_PATH)
+    # If embeddings missing or mismatch, compute them
     if embeddings is None or len(ids) != len(ITEMS):
-        # compute embeddings for all items
         texts = []
         ids = []
         for it in ITEMS:
-            # choose canonical text for embedding: name + aliases + country + region + type + description
             parts = [it.get("name", "")]
             parts += it.get("aliases", [])
             parts += [it.get("country", ""), it.get("region", ""), it.get("type", ""), it.get("description", "")]
@@ -308,6 +340,7 @@ def initialize_all():
             try:
                 emb = compute_embeddings_for_texts(texts)
                 _EMBEDDINGS = emb
+                EMBED_DIM = emb.shape[1]
                 save_embeddings(ids, emb)
             except Exception as e:
                 logger.exception("Failed to compute embeddings: %s", e)
@@ -316,7 +349,8 @@ def initialize_all():
             _EMBEDDINGS = np.zeros((0, EMBED_DIM), dtype=np.float32)
     else:
         _EMBEDDINGS = embeddings
-    # build or load Annoy index
+        EMBED_DIM = _EMBEDDINGS.shape[1]
+    # Build or load Annoy index
     if _EMBEDDINGS is not None and _EMBEDDINGS.shape[0] > 0:
         try:
             idx = load_annoy_index(_EMBEDDINGS.shape[1])
@@ -328,7 +362,7 @@ def initialize_all():
             _ANN_INDEX = None
     else:
         _ANN_INDEX = None
-    # id -> index mapping
+    # Build id->index map
     _ID_TO_INDEX = {}
     if _EMBEDDINGS is not None:
         for i, it in enumerate(ITEMS):
@@ -337,29 +371,32 @@ def initialize_all():
                 "yes" if _EMBEDDINGS is not None else "no",
                 "yes" if _ANN_INDEX is not None else "no")
 
-# ---------------- Embedding helpers ----------------
+# ---------------- Embedding helpers (query) ----------------
 
 @cached(QUERY_EMBED_CACHE)
 def get_query_embedding(text: str) -> np.ndarray:
-    """
-    Return embedding vector for query text (cached).
-    """
+    """Return embedding for a query string (cached). Supports new and legacy clients."""
     if not _HAS_OPENAI:
-        # fallback: simple average of char codes (deterministic but weak)
+        # deterministic fallback vector (weak)
         vec = np.array([float(sum(ord(c) for c in text) % 1000)] * EMBED_DIM, dtype=np.float32)
         return vec
-    openai_client_setup()
+    client = openai_client_setup()
     try:
-        resp = openai.Embedding.create(model=OPENAI_MODEL, input=text)
-        emb = np.array(resp["data"][0]["embedding"], dtype=np.float32)
+        if _OPENAI_NEW_CLIENT and hasattr(client, "embeddings"):
+            resp = client.embeddings.create(model=OPENAI_MODEL, input=text)
+            emb = np.array(resp.data[0].embedding, dtype=np.float32)
+        else:
+            resp = client.Embedding.create(model=OPENAI_MODEL, input=text)  # type: ignore
+            emb = np.array(resp["data"][0]["embedding"], dtype=np.float32)
         return emb
     except Exception as e:
         logger.exception("OpenAI embedding failed: %s", e)
         return np.zeros((EMBED_DIM,), dtype=np.float32)
 
-# ---------------- Matching and Scoring ----------------
+# ---------------- Matching and scoring ----------------
 
 def best_name_match_score(query: str, item: Dict) -> Tuple[float, str]:
+    """Return best name/alias score and matched string."""
     best = 0.0
     best_str = item.get("name", "")
     s = combined_name_score(query, item.get("name", ""))
@@ -372,6 +409,7 @@ def best_name_match_score(query: str, item: Dict) -> Tuple[float, str]:
     return best, best_str
 
 def field_match_boost(query_tokens: List[str], field_value: str) -> float:
+    """Return fractional boost if query tokens overlap with a field (country/region/type)."""
     if not field_value:
         return 0.0
     ftoks = tokens(field_value)
@@ -383,6 +421,7 @@ def field_match_boost(query_tokens: List[str], field_value: str) -> float:
     return len(inter) / len(ftoks)
 
 def string_item_score(query: str, item: Dict, weights: Dict = None) -> Tuple[float, Dict]:
+    """Compute string-only score and return details."""
     if weights is None:
         weights = {"name": 0.65, "country": 0.15, "region": 0.12, "type": 0.08}
     nq = normalize_text(query)
@@ -412,22 +451,20 @@ def string_item_score(query: str, item: Dict, weights: Dict = None) -> Tuple[flo
     return score, details
 
 def embed_candidates(query_emb: np.ndarray, top_k: int = 10) -> List[Tuple[int, float]]:
-    """
-    Return list of (index, similarity) for top_k neighbors from Annoy.
-    Similarity is cosine-like (Annoy angular -> convert to cosine approx).
-    """
+    """Return top_k neighbor indices and approximate similarity from Annoy."""
     global _ANN_INDEX, _EMBEDDINGS
     if _ANN_INDEX is None or _EMBEDDINGS is None or _EMBEDDINGS.shape[0] == 0:
         return []
     with _ANN_LOCK:
         try:
-            # Annoy returns indices; use nns with distances
             idxs, dists = _ANN_INDEX.get_nns_by_vector(query_emb.astype(np.float32), top_k, include_distances=True)
-            # For angular metric, distance is 2*(1 - cos) approximately; convert to cosine similarity
             sims = []
             for dist in dists:
-                # protect against negative or large values
-                cos_sim = max(-1.0, min(1.0, 1.0 - (dist ** 2) / 2.0)) if ANNOY_METRIC == "angular" else (1.0 - dist)
+                if ANNOY_METRIC == "angular":
+                    # convert angular distance to approximate cosine similarity
+                    cos_sim = max(-1.0, min(1.0, 1.0 - (dist ** 2) / 2.0))
+                else:
+                    cos_sim = 1.0 - dist
                 sims.append(float(cos_sim))
             return list(zip(idxs, sims))
         except Exception as e:
@@ -435,6 +472,7 @@ def embed_candidates(query_emb: np.ndarray, top_k: int = 10) -> List[Tuple[int, 
             return []
 
 def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    """Compute cosine similarity between two vectors."""
     if a is None or b is None or a.size == 0 or b.size == 0:
         return 0.0
     na = np.linalg.norm(a)
@@ -444,14 +482,14 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(a, b) / (na * nb))
 
 def hybrid_score_for_item(query: str, query_emb: np.ndarray, item: Dict, item_index: Optional[int]) -> Tuple[float, Dict]:
+    """Combine string score and embedding score into a final hybrid score and details."""
     string_score, s_details = string_item_score(query, item)
     embed_score = 0.0
     if query_emb is not None and item_index is not None and _EMBEDDINGS is not None:
         try:
             item_emb = _EMBEDDINGS[item_index]
             embed_score = cosine_similarity(query_emb, item_emb)
-            # normalize cosine from [-1,1] to [0,1]
-            embed_score = max(0.0, (embed_score + 1.0) / 2.0)
+            embed_score = max(0.0, (embed_score + 1.0) / 2.0)  # normalize [-1,1] -> [0,1]
         except Exception:
             embed_score = 0.0
     final = STRING_WEIGHT * string_score + EMBED_WEIGHT * embed_score
@@ -462,36 +500,35 @@ def hybrid_score_for_item(query: str, query_emb: np.ndarray, item: Dict, item_in
     }
     return final, details
 
-# ---------------- Find Matches and Suggest ----------------
+# ---------------- Find matches and suggest ----------------
 
 def find_matches(query: str, limit: int = 5, cutoff: float = 0.55) -> List[Tuple[float, Dict, Dict]]:
+    """Find candidate matches using blocking, embedding neighbors, and hybrid scoring."""
     if not query:
         return []
     nq = normalize_text(query)
     q_toks = tokens(nq)
-    # blocking: candidate set from prefix index and country token matches
     candidates = set()
-    # prefix candidates
+    # prefix blocking
     for L in range(len(nq), 0, -1):
         key = nq[:L]
         if key in _PREFIX_INDEX:
             for it in _PREFIX_INDEX[key]:
                 candidates.add(it.get("id"))
             break
-    # country/region token blocking
+    # country/region blocking
     for it in ITEMS:
         if it.get("country") and normalize_text(it.get("country")) in nq:
             candidates.add(it.get("id"))
         if it.get("region") and normalize_text(it.get("region")) in nq:
             candidates.add(it.get("id"))
-    # fallback: if no candidates, consider all items
+    # fallback to all items
     if not candidates:
         candidates = {it.get("id") for it in ITEMS}
-    # compute query embedding and get embedding candidates
+    # embedding candidates
     query_emb = get_query_embedding(query)
     embed_neigh = embed_candidates(query_emb, top_k=limit * 3)
     embed_candidate_ids = {ITEMS[idx].get("id") for idx, _ in embed_neigh if 0 <= idx < len(ITEMS)}
-    # union embed candidates
     candidates = candidates.union(embed_candidate_ids)
     scored = []
     for cid in candidates:
@@ -506,6 +543,7 @@ def find_matches(query: str, limit: int = 5, cutoff: float = 0.55) -> List[Tuple
     return scored[:limit]
 
 def suggest_entities(prefix: str, limit: int = 10) -> List[Dict]:
+    """Return prefix-based suggestions with simple scoring."""
     if not prefix:
         return []
     npref = normalize_text(prefix)
@@ -556,14 +594,16 @@ def suggest_entities(prefix: str, limit: int = 10) -> List[Dict]:
         })
     return out
 
-# ---------------- API Endpoints ----------------
+# ---------------- API endpoints ----------------
 
 @app.route("/health", methods=["GET"])
 def health():
+    """Health endpoint returning item count."""
     return jsonify({"status": "ok", "items": len(ITEMS)})
 
 @app.route("/service", methods=["GET", "POST"])
 def service_metadata():
+    """Service metadata for OpenRefine compatibility."""
     return jsonify({
         "name": "Places Reconciliation (Hybrid)",
         "identifierSpace": "http://example.org/places",
@@ -576,6 +616,7 @@ def service_metadata():
 
 @app.route("/view/<entity_id>", methods=["GET"])
 def view_entity(entity_id):
+    """Simple HTML preview for an entity id."""
     item = next((i for i in ITEMS if i.get("id") == entity_id), None)
     if not item:
         return "Not found", 404
@@ -594,6 +635,7 @@ def view_entity(entity_id):
 
 @app.route("/reconcile", methods=["GET", "POST"])
 def reconcile():
+    """Handle single and batch reconcile requests (OpenRefine compatible)."""
     payload = request.get_json(silent=True)
     if payload is None:
         if "queries" in request.form:
@@ -659,6 +701,7 @@ def reconcile():
 
 @app.route("/suggest", methods=["GET"])
 def suggest():
+    """Suggest endpoint for prefix autocompletion."""
     q = request.args.get("q", "")
     limit = int(request.args.get("limit", 10))
     suggestions = suggest_entities(q, limit=limit)
@@ -667,6 +710,7 @@ def suggest():
 # ---------------- Data extension endpoints (protected) ----------------
 
 def require_admin():
+    """Simple admin token check for write endpoints."""
     token = request.headers.get("X-ADMIN-TOKEN") or request.args.get("admin_token")
     if not ADMIN_TOKEN:
         abort(403, description="Admin token not configured on server")
@@ -674,7 +718,7 @@ def require_admin():
         abort(401, description="Unauthorized")
 
 def persist_items_to_csv(path: str = CSV_PATH):
-    # write a temp file then rename for atomicity
+    """Persist current ITEMS list to CSV atomically."""
     tmp = path + ".tmp"
     fieldnames = ["id", "name", "country", "region", "type", "aliases", "description"]
     with open(tmp, "w", encoding="utf-8", newline="") as fh:
@@ -694,11 +738,8 @@ def persist_items_to_csv(path: str = CSV_PATH):
     logger.info("Persisted %d items to %s", len(ITEMS), path)
 
 def rebuild_embeddings_and_index():
-    """
-    Recompute embeddings for all items and rebuild Annoy index.
-    This is a blocking operation; for large datasets consider doing async.
-    """
-    global _EMBEDDINGS, _ANN_INDEX, _ID_TO_INDEX
+    """Recompute embeddings for all items and rebuild Annoy index (blocking)."""
+    global _EMBEDDINGS, _ANN_INDEX, _ID_TO_INDEX, EMBED_DIM
     texts = []
     ids = []
     for it in ITEMS:
@@ -710,22 +751,21 @@ def rebuild_embeddings_and_index():
     if texts:
         emb = compute_embeddings_for_texts(texts)
         _EMBEDDINGS = emb
+        EMBED_DIM = emb.shape[1]
         save_embeddings(ids, emb)
-        # rebuild Annoy
         if _HAS_ANNOY:
             with _ANN_LOCK:
                 _ANN_INDEX = build_annoy_index(_EMBEDDINGS, _EMBEDDINGS.shape[1])
-    # rebuild id->index map
     _ID_TO_INDEX = {it.get("id"): i for i, it in enumerate(ITEMS)}
     build_prefix_index(ITEMS)
 
 @app.route("/items", methods=["POST"])
 def add_item():
+    """Add a new item (requires admin token)."""
     require_admin()
     payload = request.get_json(silent=True)
     if not payload:
         abort(400, description="Invalid JSON")
-    # expected fields: id, name, country, region, type, aliases (list or semicolon string), description
     new = {
         "id": str(payload.get("id") or ""),
         "name": str(payload.get("name") or ""),
@@ -737,16 +777,14 @@ def add_item():
     }
     if not new["id"] or not new["name"]:
         abort(400, description="id and name required")
-    # append
     ITEMS.append(new)
-    # persist CSV
     persist_items_to_csv(CSV_PATH)
-    # rebuild embeddings and index (blocking)
     rebuild_embeddings_and_index()
     return jsonify({"status": "added", "id": new["id"]})
 
 @app.route("/items/<entity_id>", methods=["PUT"])
 def update_item(entity_id):
+    """Update an existing item (requires admin token)."""
     require_admin()
     payload = request.get_json(silent=True)
     if not payload:
@@ -754,7 +792,6 @@ def update_item(entity_id):
     item = next((i for i in ITEMS if i.get("id") == entity_id), None)
     if not item:
         abort(404, description="Not found")
-    # update fields if present
     for k in ("name", "country", "region", "type", "description"):
         if k in payload:
             item[k] = str(payload[k] or "")
@@ -766,6 +803,7 @@ def update_item(entity_id):
 
 @app.route("/items/<entity_id>", methods=["DELETE"])
 def delete_item(entity_id):
+    """Delete an item by id (requires admin token)."""
     require_admin()
     global ITEMS
     before = len(ITEMS)
@@ -777,13 +815,13 @@ def delete_item(entity_id):
     rebuild_embeddings_and_index()
     return jsonify({"status": "deleted", "id": entity_id})
 
-# Dev-only reload
+# Dev-only reload endpoint
 @app.route("/_reload_items", methods=["POST"])
 def _reload_items():
+    """Reload CSV and rebuild embeddings/index in background."""
     global ITEMS
     ITEMS = load_items_from_csv(CSV_PATH)
     build_prefix_index(ITEMS)
-    # rebuild embeddings/index in background to avoid blocking
     t = threading.Thread(target=rebuild_embeddings_and_index, daemon=True)
     t.start()
     return jsonify({"status": "reloading", "count": len(ITEMS)})
@@ -791,16 +829,19 @@ def _reload_items():
 # ---------------- Main ----------------
 
 if __name__ == "__main__":
-    # Validate environment
+    # Configure OpenAI client if key present
     if _HAS_OPENAI and OPENAI_API_KEY:
-        openai.api_key = OPENAI_API_KEY
+        try:
+            if _OPENAI_NEW_CLIENT and OpenAIClient is not None:
+                # instantiate new client for immediate use (not stored globally)
+                # actual calls use openai_client_setup() which will create clients as needed
+                pass
+            else:
+                openai.api_key = OPENAI_API_KEY
+        except Exception:
+            pass
     if not _HAS_ANNOY:
         logger.warning("Annoy not available; embedding-based search will be disabled")
-    # Try to infer embed dim from model if possible (best-effort)
-    try:
-        # many OpenAI embedding models return 1536 or 12288 etc; keep EMBED_DIM if set
-        pass
-    except Exception:
-        pass
     initialize_all()
     app.run(host=HOST, port=PORT, debug=DEBUG)
+
