@@ -1,7 +1,0 @@
-{
-  "total": 48,
-  "precision_at_1": 0.5833333333333334,
-  "precision_at_5": 0.5833333333333334,
-  "coverage": 0.6875,
-  "failures": 18
-}
