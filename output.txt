@@ -1,0 +1,703 @@
+(venv) mayzn@Mays-MacBook-Pro Reconciliation_Prototype % curl http://127.0.0.1:5000/health | jq
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    59  100    59    0     0  41637      0 --:--:-- --:--:-- --:--:-- 59000
+{
+  "annoy": true,
+  "embeddings": true,
+  "items": 100,
+  "status": "ok"
+}
+(venv) mayzn@Mays-MacBook-Pro Reconciliation_Prototype % curl "http://127.0.0.1:5000/reconcile?query=London" | jq
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   409  100   409    0     0    244      0  0:00:01  0:00:01 --:--:--   244
+{
+  "result": [
+    {
+      "description": "Capital of the UK and major global city",
+      "details": {
+        "calibrated_score": 0.8083,
+        "country_boost": 0.0,
+        "embed_score": 0.7347,
+        "matched_string": "London",
+        "name_score": 1.0,
+        "region_boost": 0.0,
+        "string_score": 0.7,
+        "type_boost": 0.0
+      },
+      "id": "1",
+      "match": true,
+      "metadata": {
+        "country": "United Kingdom",
+        "region": "England",
+        "type": "City"
+      },
+      "name": "London",
+      "score": 81,
+      "type": [
+        {
+          "id": "Place",
+          "name": "Place"
+        }
+      ]
+    }
+  ]
+}
+(venv) mayzn@Mays-MacBook-Pro Reconciliation_Prototype % curl "http://127.0.0.1:5000/reconcile?query=Londinium" | jq
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   412  100   412    0     0  10110      0 --:--:-- --:--:-- --:--:-- 10300
+{
+  "result": [
+    {
+      "description": "Capital of the UK and major global city",
+      "details": {
+        "calibrated_score": 0.7953,
+        "country_boost": 0.0,
+        "embed_score": 0.6763,
+        "matched_string": "Londinium",
+        "name_score": 1.0,
+        "region_boost": 0.0,
+        "string_score": 0.7,
+        "type_boost": 0.0
+      },
+      "id": "1",
+      "match": true,
+      "metadata": {
+        "country": "United Kingdom",
+        "region": "England",
+        "type": "City"
+      },
+      "name": "London",
+      "score": 80,
+      "type": [
+        {
+          "id": "Place",
+          "name": "Place"
+        }
+      ]
+    }
+  ]
+}
+(venv) mayzn@Mays-MacBook-Pro Reconciliation_Prototype % curl "http://127.0.0.1:5000/llm_reconcile?query=Lugdunum" | jq
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   426  100   426    0     0   8889      0 --:--:-- --:--:-- --:--:--  9063
+{
+  "result": [
+    {
+      "description": "Historic city known for cuisine and silk",
+      "details": {
+        "calibrated_score": 0.7128,
+        "country_boost": 0.0,
+        "llm_embed_score": 0.5969,
+        "matched_string": "Lugdunum",
+        "name_score": 1.0,
+        "region_boost": 0.0,
+        "string_score": 0.65,
+        "type_boost": 0.0
+      },
+      "id": "12",
+      "match": true,
+      "metadata": {
+        "country": "France",
+        "region": "Auvergne-Rhône-Alpes",
+        "type": "City"
+      },
+      "name": "Lyon",
+      "score": 71,
+      "type": [
+        {
+          "id": "Place",
+          "name": "Place"
+        }
+      ]
+    }
+  ]
+}
+(venv) mayzn@Mays-MacBook-Pro Reconciliation_Prototype % curl "http://127.0.0.1:5000/compare?query=London" | jq
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1296  100  1296    0     0   134k      0 --:--:-- --:--:-- --:--:--  140k
+{
+  "ann": [
+    {
+      "details": {
+        "country_boost": 0.0,
+        "embed_score": 0.7039,
+        "matched_string": "Mancunia",
+        "name_score": 0.2292,
+        "region_boost": 0.0,
+        "string_score": 0.149,
+        "type_boost": 0.0
+      },
+      "id": "2",
+      "name": "Manchester",
+      "score": 13
+    }
+  ],
+  "hybrid": [
+    {
+      "details": {
+        "calibrated_score": 0.8083,
+        "country_boost": 0.0,
+        "embed_score": 0.7347,
+        "matched_string": "London",
+        "name_score": 1.0,
+        "region_boost": 0.0,
+        "string_score": 0.7,
+        "type_boost": 0.0
+      },
+      "id": "1",
+      "name": "London",
+      "score": 81
+    },
+    {
+      "details": {
+        "calibrated_score": 0.128,
+        "country_boost": 0.0,
+        "embed_score": 0.7039,
+        "matched_string": "Mancunia",
+        "name_score": 0.2292,
+        "region_boost": 0.0,
+        "string_score": 0.149,
+        "type_boost": 0.0
+      },
+      "id": "2",
+      "name": "Manchester",
+      "score": 13
+    }
+  ],
+  "lexical": [
+    {
+      "details": {
+        "country_boost": 0.0,
+        "matched_string": "London",
+        "name_score": 1.0,
+        "region_boost": 0.0,
+        "type_boost": 0.0
+      },
+      "id": "1",
+      "name": "London",
+      "score": 80
+    }
+  ],
+  "llm": [
+    {
+      "details": {
+        "calibrated_score": 0.8291,
+        "country_boost": 0.0,
+        "llm_embed_score": 0.7347,
+        "matched_string": "London",
+        "name_score": 1.0,
+        "region_boost": 0.0,
+        "string_score": 0.7,
+        "type_boost": 0.0
+      },
+      "id": "1",
+      "name": "London",
+      "score": 83
+    },
+    {
+      "details": {
+        "calibrated_score": 0.4374,
+        "country_boost": 0.0,
+        "llm_embed_score": 0.7039,
+        "matched_string": "Mancunia",
+        "name_score": 0.2292,
+        "region_boost": 0.0,
+        "string_score": 0.149,
+        "type_boost": 0.0
+      },
+      "id": "2",
+      "name": "Manchester",
+      "score": 44
+    }
+  ],
+  "query": "London"
+}
+(venv) mayzn@Mays-MacBook-Pro Reconciliation_Prototype % curl "http://127.0.0.1:5000/llm_reconcile?query=Lugdunum" | jq
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   426  100   426    0     0  51749      0 --:--:-- --:--:-- --:--:-- 53250
+{
+  "result": [
+    {
+      "description": "Historic city known for cuisine and silk",
+      "details": {
+        "calibrated_score": 0.7128,
+        "country_boost": 0.0,
+        "llm_embed_score": 0.5969,
+        "matched_string": "Lugdunum",
+        "name_score": 1.0,
+        "region_boost": 0.0,
+        "string_score": 0.65,
+        "type_boost": 0.0
+      },
+      "id": "12",
+      "match": true,
+      "metadata": {
+        "country": "France",
+        "region": "Auvergne-Rhône-Alpes",
+        "type": "City"
+      },
+      "name": "Lyon",
+      "score": 71,
+      "type": [
+        {
+          "id": "Place",
+          "name": "Place"
+        }
+      ]
+    }
+  ]
+}
+(venv) mayzn@Mays-MacBook-Pro Reconciliation_Prototype % curl "http://127.0.0.1:5000/compare?query=London" | jq
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1296  100  1296    0     0   146k      0 --:--:-- --:--:-- --:--:--  158k
+{
+  "ann": [
+    {
+      "details": {
+        "country_boost": 0.0,
+        "embed_score": 0.7039,
+        "matched_string": "Mancunia",
+        "name_score": 0.2292,
+        "region_boost": 0.0,
+        "string_score": 0.149,
+        "type_boost": 0.0
+      },
+      "id": "2",
+      "name": "Manchester",
+      "score": 13
+    }
+  ],
+  "hybrid": [
+    {
+      "details": {
+        "calibrated_score": 0.8083,
+        "country_boost": 0.0,
+        "embed_score": 0.7347,
+        "matched_string": "London",
+        "name_score": 1.0,
+        "region_boost": 0.0,
+        "string_score": 0.7,
+        "type_boost": 0.0
+      },
+      "id": "1",
+      "name": "London",
+      "score": 81
+    },
+    {
+      "details": {
+        "calibrated_score": 0.128,
+        "country_boost": 0.0,
+        "embed_score": 0.7039,
+        "matched_string": "Mancunia",
+        "name_score": 0.2292,
+        "region_boost": 0.0,
+        "string_score": 0.149,
+        "type_boost": 0.0
+      },
+      "id": "2",
+      "name": "Manchester",
+      "score": 13
+    }
+  ],
+  "lexical": [
+    {
+      "details": {
+        "country_boost": 0.0,
+        "matched_string": "London",
+        "name_score": 1.0,
+        "region_boost": 0.0,
+        "type_boost": 0.0
+      },
+      "id": "1",
+      "name": "London",
+      "score": 80
+    }
+  ],
+  "llm": [
+    {
+      "details": {
+        "calibrated_score": 0.8291,
+        "country_boost": 0.0,
+        "llm_embed_score": 0.7347,
+        "matched_string": "London",
+        "name_score": 1.0,
+        "region_boost": 0.0,
+        "string_score": 0.7,
+        "type_boost": 0.0
+      },
+      "id": "1",
+      "name": "London",
+      "score": 83
+    },
+    {
+      "details": {
+        "calibrated_score": 0.4374,
+        "country_boost": 0.0,
+        "llm_embed_score": 0.7039,
+        "matched_string": "Mancunia",
+        "name_score": 0.2292,
+        "region_boost": 0.0,
+        "string_score": 0.149,
+        "type_boost": 0.0
+      },
+      "id": "2",
+      "name": "Manchester",
+      "score": 44
+    }
+  ],
+  "query": "London"
+}
+(venv) mayzn@Mays-MacBook-Pro Reconciliation_Prototype % curl "http://127.0.0.1:5000/compare?query=Paris" | jq
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1292  100  1292    0     0  42833      0 --:--:-- --:--:-- --:--:-- 43066
+{
+  "ann": [
+    {
+      "details": {
+        "country_boost": 0.0,
+        "embed_score": 0.5818,
+        "matched_string": "Mancunia",
+        "name_score": 0.2402,
+        "region_boost": 0.0,
+        "string_score": 0.1561,
+        "type_boost": 0.0
+      },
+      "id": "2",
+      "name": "Manchester",
+      "score": 11
+    }
+  ],
+  "hybrid": [
+    {
+      "details": {
+        "calibrated_score": 0.811,
+        "country_boost": 0.0,
+        "embed_score": 0.746,
+        "matched_string": "Paris",
+        "name_score": 1.0,
+        "region_boost": 0.0,
+        "string_score": 0.7,
+        "type_boost": 0.0
+      },
+      "id": "11",
+      "name": "Paris",
+      "score": 81
+    },
+    {
+      "details": {
+        "calibrated_score": 0.113,
+        "country_boost": 0.0,
+        "embed_score": 0.5818,
+        "matched_string": "Mancunia",
+        "name_score": 0.2402,
+        "region_boost": 0.0,
+        "string_score": 0.1561,
+        "type_boost": 0.0
+      },
+      "id": "2",
+      "name": "Manchester",
+      "score": 11
+    }
+  ],
+  "lexical": [
+    {
+      "details": {
+        "country_boost": 0.0,
+        "matched_string": "Paris",
+        "name_score": 1.0,
+        "region_boost": 0.0,
+        "type_boost": 0.0
+      },
+      "id": "11",
+      "name": "Paris",
+      "score": 80
+    }
+  ],
+  "llm": [
+    {
+      "details": {
+        "calibrated_score": 0.8386,
+        "country_boost": 0.0,
+        "llm_embed_score": 0.746,
+        "matched_string": "Paris",
+        "name_score": 1.0,
+        "region_boost": 0.0,
+        "string_score": 0.7,
+        "type_boost": 0.0
+      },
+      "id": "11",
+      "name": "Paris",
+      "score": 84
+    },
+    {
+      "details": {
+        "calibrated_score": 0.2833,
+        "country_boost": 0.0,
+        "llm_embed_score": 0.5818,
+        "matched_string": "Mancunia",
+        "name_score": 0.2402,
+        "region_boost": 0.0,
+        "string_score": 0.1561,
+        "type_boost": 0.0
+      },
+      "id": "2",
+      "name": "Manchester",
+      "score": 28
+    }
+  ],
+  "query": "Paris"
+}
+(venv) mayzn@Mays-MacBook-Pro Reconciliation_Prototype % curl "http://127.0.0.1:5000/suggest?q=Bar" | jq
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    94  100    94    0     0  79324      0 --:--:-- --:--:-- --:--:-- 94000
+{
+  "result": [
+    {
+      "id": "24",
+      "name": "Barcelona",
+      "score": 95,
+      "type": [
+        {
+          "id": "Place",
+          "name": "Place"
+        }
+      ]
+    }
+  ]
+}
+(venv) mayzn@Mays-MacBook-Pro Reconciliation_Prototype % curl "http://127.0.0.1:5000/suggest_improvements?query=San%20Sebastian" | jq
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   455  100   455    0     0  12253      0 --:--:-- --:--:-- --:--:-- 12297
+{
+  "result": [
+    {
+      "details": {
+        "calibrated_score": 0.7849,
+        "country_boost": 0.0,
+        "embed_score": 0.8244,
+        "matched_string": "San Sebastián",
+        "name_score": 1.0,
+        "region_boost": 0.0,
+        "string_score": 0.65,
+        "type_boost": 0.0
+      },
+      "id": "100",
+      "match": true,
+      "metadata": {
+        "country": "Spain",
+        "region": "Basque Country",
+        "type": "City"
+      },
+      "name": "San Sebastián",
+      "reason": "San Sebastián is suggested because it is very similar name to 'San Sebastian' and located in Spain.",
+      "score": 78
+    }
+  ]
+}
+(venv) mayzn@Mays-MacBook-Pro Reconciliation_Prototype % curl "http://127.0.0.1:5000/explain/1?query=London" | jq
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   249  100   249    0     0   173k      0 --:--:-- --:--:-- --:--:--  243k
+{
+  "details": {
+    "country_boost": 0.0,
+    "matched_string": "London",
+    "name_score": 1.0,
+    "region_boost": 0.0,
+    "type_boost": 0.0
+  },
+  "explanation": "London is suggested because it is very similar name to 'London' and located in United Kingdom.",
+  "id": "1",
+  "name": "London"
+}
+(venv) mayzn@Mays-MacBook-Pro Reconciliation_Prototype % curl -X POST http://127.0.0.1:5000/extend \
+  -H "Content-Type: application/json" \
+  -d '{"ids":["1","12"],"properties":["country","region","type","aliases"]}' | jq
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   348  100   279  100    69   261k  66282 --:--:-- --:--:-- --:--:--  339k
+{
+  "rows": {
+    "1": {
+      "aliases": [
+        "Londinium",
+        "Greater London",
+        "City of London",
+        "London UK",
+        "Lundenwic"
+      ],
+      "country": "United Kingdom",
+      "region": "England",
+      "type": "City"
+    },
+    "12": {
+      "aliases": [
+        "Lyons",
+        "Lugdunum",
+        "Lyon City"
+      ],
+      "country": "France",
+      "region": "Auvergne-Rhône-Alpes",
+      "type": "City"
+    }
+  }
+}
+(venv) mayzn@Mays-MacBook-Pro Reconciliation_Prototype % curl -X POST http://127.0.0.1:5000/reconcile \
+  -H "Content-Type: application/json" \
+  -d '{"queries":{"q0":{"query":"Paris"},"q1":{"query":"Munich"},"q2":{"query":"Londinium"}}}' | jq
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1332  100  1245  100    87  60466   4225 --:--:-- --:--:-- --:--:-- 66600
+{
+  "q0": {
+    "result": [
+      {
+        "description": "France's capital and major cultural centre",
+        "details": {
+          "calibrated_score": 0.811,
+          "country_boost": 0.0,
+          "embed_score": 0.746,
+          "matched_string": "Paris",
+          "name_score": 1.0,
+          "region_boost": 0.0,
+          "string_score": 0.7,
+          "type_boost": 0.0
+        },
+        "id": "11",
+        "match": true,
+        "metadata": {
+          "country": "France",
+          "region": "Île-de-France",
+          "type": "City"
+        },
+        "name": "Paris",
+        "score": 81,
+        "type": [
+          {
+            "id": "Place",
+            "name": "Place"
+          }
+        ]
+      }
+    ]
+  },
+  "q1": {
+    "result": [
+      {
+        "description": "Bavaria's capital, known for Oktoberfest",
+        "details": {
+          "calibrated_score": 0.8232,
+          "country_boost": 0.0,
+          "embed_score": 0.7968,
+          "matched_string": "Munich",
+          "name_score": 1.0,
+          "region_boost": 0.0,
+          "string_score": 0.7,
+          "type_boost": 0.0
+        },
+        "id": "19",
+        "match": true,
+        "metadata": {
+          "country": "Germany",
+          "region": "Bavaria",
+          "type": "City"
+        },
+        "name": "Munich",
+        "score": 82,
+        "type": [
+          {
+            "id": "Place",
+            "name": "Place"
+          }
+        ]
+      }
+    ]
+  },
+  "q2": {
+    "result": [
+      {
+        "description": "Capital of the UK and major global city",
+        "details": {
+          "calibrated_score": 0.7953,
+          "country_boost": 0.0,
+          "embed_score": 0.6763,
+          "matched_string": "Londinium",
+          "name_score": 1.0,
+          "region_boost": 0.0,
+          "string_score": 0.7,
+          "type_boost": 0.0
+        },
+        "id": "1",
+        "match": true,
+        "metadata": {
+          "country": "United Kingdom",
+          "region": "England",
+          "type": "City"
+        },
+        "name": "London",
+        "score": 80,
+        "type": [
+          {
+            "id": "Place",
+            "name": "Place"
+          }
+        ]
+      }
+    ]
+  }
+}
+(venv) mayzn@Mays-MacBook-Pro Reconciliation_Prototype % curl -X POST http://127.0.0.1:5000/items \
+  -H "X-ADMIN-TOKEN: s3cure_@iopno_token_0123456789abcdej" \
+  -H "Content-Type: application/json" \
+  -d '{"id":"999","name":"Test City","country":"Testland","region":"Test Region","type":"City","aliases":["TC"],"description":"Testing"}' | jq
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   160  100    30  100   130    136    589 --:--:-- --:--:-- --:--:--   727
+{
+  "id": "999",
+  "status": "added"
+}
+(venv) mayzn@Mays-MacBook-Pro Reconciliation_Prototype % curl -X PUT http://127.0.0.1:5000/items/999 \
+  -H "X-ADMIN-TOKEN: s3cure_@iopno_token_0123456789abcdej" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Updated Test City"}' | jq
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    60  100    32  100    28    306    267 --:--:-- --:--:-- --:--:--   571
+{
+  "id": "999",
+  "status": "updated"
+}
+(venv) mayzn@Mays-MacBook-Pro Reconciliation_Prototype % curl -X DELETE http://127.0.0.1:5000/items/999 \
+  -H "X-ADMIN-TOKEN: s3cure_@iopno_token_0123456789abcdej" | jq
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    32  100    32    0     0    269      0 --:--:-- --:--:-- --:--:--   271
+{
+  "id": "999",
+  "status": "deleted"
+}
