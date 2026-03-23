@@ -1,0 +1,485 @@
+query,expected_id
+London,1
+Londinium,1
+Greater London,1
+City of London,1
+London UK,1
+Lundenwic,1
+Manchester,2
+MCR,2
+Mancunia,2
+Manchester UK,2
+Manchestur,2
+Birmingham,3
+Brum,3
+Birmingham UK,3
+Birmingam,3
+Edinburgh,4
+Dùn Èideann,4
+Edinburgh UK,4
+Edinborough,4
+Glasgow,5
+Glesga,5
+Glaschu,5
+Glascow,5
+Cardiff,6
+Caerdydd,6
+Cardiff UK,6
+Cardif,6
+Belfast,7
+Béal Feirste,7
+Belfast UK,7
+Belfest,7
+Dublin,8
+Baile Átha Cliath,8
+Dubh Linn,8
+Dublin City,8
+Cork,9
+Corcaigh,9
+Cork City,9
+Corke,9
+Galway,10
+Gaillimh,10
+Galway City,10
+Galwaye,10
+Paris,11
+Ville Lumière,11
+Paris City,11
+Lutetia,11
+Lyon,12
+Lyons,12
+Lugdunum,12
+Lyon City,12
+Marseille,13
+Massilia,13
+Marseilles,13
+Marseille City,13
+Nice,14
+Nizza,14
+Nice City,14
+Toulouse,15
+Tolosa,15
+Toulouse City,15
+Bordeaux,16
+Bordèu,16
+Bordeaux City,16
+Berlin,17
+Berlyn,17
+Berlin City,17
+Berlino,17
+Hamburg,18
+Hansestadt Hamburg,18
+Hamburg City,18
+Hamborg,18
+Munich,19
+München,19
+Munchen,19
+Munich City,19
+Minga,19
+Frankfurt,20
+Frankfurt am Main,20
+Frankfurt City,20
+Frankfort,20
+Cologne,21
+Köln,21
+Cologne City,21
+Koeln,21
+Stuttgart,22
+Stuttgart City,22
+Stuttgard,22
+Madrid,23
+Madrit,23
+Madrid City,23
+Madriz,23
+Barcelona,24
+Barça,24
+Barcino,24
+Barcelona City,24
+Barcelone,24
+Valencia,25
+València,25
+Valencia City,25
+Valentia,25
+Seville,26
+Sevilla,26
+Seville City,26
+Bilbao,27
+Bilbo,27
+Bilbao City,27
+Malaga,28
+Málaga,28
+Malaga City,28
+Rome,29
+Roma,29
+Roma Capitale,29
+Rome City,29
+Milan,30
+Milano,30
+Milan City,30
+Mediolanum,30
+Naples,31
+Napoli,31
+Naples City,31
+Neapolis,31
+Turin,32
+Torino,32
+Turin City,32
+Florence,33
+Firenze,33
+Florence City,33
+Bologna,34
+Bolonia,34
+Bologna City,34
+Venice,35
+Venezia,35
+Venice City,35
+Venise,35
+Amsterdam,36
+A’dam,36
+Amsterdam City,36
+Amstelredamme,36
+Rotterdam,37
+R'dam,37
+Rotterdam City,37
+Rotterdamm,37
+Utrecht,38
+Utrect,38
+Utrecht City,38
+Traiectum,38
+The Hague,39
+Den Haag,39
+’s‑Gravenhage,39
+Brussels,40
+Bruxelles,40
+Brussel,40
+Brussels City,40
+Bruxel,40
+Antwerp,41
+Antwerpen,41
+Antwerp City,41
+Antverpia,41
+Ghent,42
+Gent,42
+Gand,42
+Zurich,43
+Zürich,43
+Zurich City,43
+Zuerich,43
+Geneva,44
+Genève,44
+Geneva City,44
+Geneve,44
+Basel,45
+Bâle,45
+Basel City,45
+Basilea,45
+Lausanne,46
+Lausanne City,46
+Losanna,46
+Oslo,47
+Christiania,47
+Oslo City,47
+Oslow,47
+Bergen,48
+Bjørgvin,48
+Bergen City,48
+Bergenhus,48
+Trondheim,49
+Nidaros,49
+Trondheim City,49
+Stockholm,50
+Stockholmen,50
+Stockholm City,50
+Stockolm,50
+Gothenburg,51
+Göteborg,51
+Gothenburg City,51
+Goteborg,51
+Malmö,52
+Malmo,52
+Malmö City,52
+Helsinki,53
+Helsingfors,53
+Helsinki City,53
+Helsinki FI,53
+Tampere,54
+Tammerfors,54
+Tampere City,54
+Tamperee,54
+Turku,55
+Åbo,55
+Turku City,55
+Copenhagen,56
+København,56
+Copenhagen City,56
+Kobenhavn,56
+Aarhus,57
+Århus,57
+Aarhus City,57
+Arhus,57
+Odense,58
+Odense City,58
+Odensee,58
+Vienna,59
+Wien,59
+Vienna City,59
+Vindobona,59
+Salzburg,60
+Saltzburg,60
+Salzburg City,60
+Salzberg,60
+Graz,61
+Graz City,61
+Gratz,61
+Prague,62
+Praha,62
+Prague City,62
+Prag,62
+Brno,63
+Brünn,63
+Brno City,63
+Brunna,63
+Ostrava,64
+Ostrava City,64
+Ostravá,64
+Warsaw,65
+Warszawa,65
+Warsaw City,65
+Varsovia,65
+Krakow,66
+Kraków,66
+Cracow,66
+Krakow City,66
+Cracovia,66
+Wroclaw,67
+Wrocław,67
+Breslau,67
+Gdansk,68
+Gdańsk,68
+Danzig,68
+Budapest,69
+Budapesti,69
+Budapest City,69
+Ofen-Pest,69
+Szeged,70
+Szeged City,70
+Segedin,70
+Sofia,71
+Sofiya,71
+Sofia City,71
+Sofea,71
+Plovdiv,72
+Plovdiv City,72
+Philippopolis,72
+Varna,73
+Varna City,73
+Varna BG,73
+Athens,74
+Athína,74
+Athens City,74
+Athenai,74
+Thessaloniki,75
+Salonika,75
+Thessaloniki City,75
+Thessalonica,75
+Patras,76
+Patra,76
+Patras City,76
+Reykjavik,77
+Reykjavík,77
+Reykjavik City,77
+Kópavogur,78
+Kopavogur,78
+Kópavogur City,78
+Akureyri,79
+Akureyri City,79
+Akureryi,79
+Porto,80
+Oporto,80
+Porto City,80
+Lisbon,81
+Lisboa,81
+Lisbon City,81
+Braga,82
+Bracara Augusta,82
+Braga City,82
+Coimbra,83
+Coimbra City,83
+Conimbriga,83
+Valletta,84
+Il-Belt Valletta,84
+Valletta City,84
+Birkirkara,85
+Birkirkara City,85
+B'kara,85
+Gozo,86
+Victoria,86
+Rabat,86
+Ljubljana,87
+Laibach,87
+Ljubljana City,87
+Maribor,88
+Marburg,88
+Maribor City,88
+Zagreb,89
+Zagreb City,89
+Agram,89
+Split,90
+Spalato,90
+Split City,90
+Rijeka,91
+Fiume,91
+Rijeka City,91
+Belgrade,92
+Beograd,92
+Belgrade City,92
+Novi Sad,93
+Novi Sad City,93
+Neusatz,93
+Skopje,94
+Skopje City,94
+Skopie,94
+Tirana,95
+Tiranë,95
+Tirana City,95
+Pristina,96
+Prishtina,96
+Pristina City,96
+Podgorica,97
+Podgorica City,97
+Titograd,97
+Sarajevo,98
+Sarajevo City,98
+Sarajewo,98
+Banja Luka,99
+Banja Luka City,99
+Banjaluka,99
+San Sebastián,100
+Donostia,100
+Donostia-San Sebastián,100
+San Sebastian,100
+La Bella Easo,100
+Leeds,NONE
+Leeds City,NONE
+Leeds UK,NONE
+Ledes,NONE
+Sheffield,NONE
+Sheffield City,NONE
+Shef,NONE
+Sheffeld,NONE
+Liverpool,NONE
+Liverpool City,NONE
+Liverpoole,NONE
+L'pool,NONE
+Bristol,NONE
+Bristol City,NONE
+Brizzle,NONE
+Newcastle upon Tyne,NONE
+Newcastle,NONE
+Newcastle City,NONE
+Geordie City,NONE
+Leicester,NONE
+Leicester City,NONE
+Lester,NONE
+Nottingham,NONE
+Nottingham City,NONE
+Nottm,NONE
+Southampton,NONE
+Soton,NONE
+Southampton City,NONE
+Plymouth,NONE
+Plymouth City,NONE
+Plym,NONE
+Brighton,NONE
+Brighton City,NONE
+Brighton & Hove,NONE
+Lille,NONE
+Lille City,NONE
+Rijsel,NONE
+Strasbourg,NONE
+Strassburg,NONE
+Strasbourg City,NONE
+Montpellier,NONE
+Montpelier,NONE
+Montpellier City,NONE
+Rennes,NONE
+Roazhon,NONE
+Rennes City,NONE
+Nantes,NONE
+Nantes City,NONE
+Naoned,NONE
+Hanover,NONE
+Hannover,NONE
+Hanover City,NONE
+Düsseldorf,NONE
+Dusseldorf,NONE
+Düsseldorf City,NONE
+Dresden,NONE
+Dresden City,NONE
+Dresdn,NONE
+Leipzig,NONE
+Leipzig City,NONE
+Lipsk,NONE
+Nuremberg,NONE
+Nürnberg,NONE
+Nuremberg City,NONE
+Valle de Bravo,NONE
+Valle Bravo,NONE
+V. de Bravo,NONE
+Toledo,NONE
+Toletum,NONE
+Toledo City,NONE
+Zaragoza,NONE
+Saragossa,NONE
+Zaragoza City,NONE
+Granada,NONE
+Granada City,NONE
+Garnata,NONE
+Verona,NONE
+Verona City,NONE
+Veronia,NONE
+Parma,NONE
+Parma City,NONE
+Parma IT,NONE
+Trieste,NONE
+Triest,NONE
+Trieste City,NONE
+Innsbruck,NONE
+Innsbruck City,NONE
+Insprugg,NONE
+Linz,NONE
+Linz City,NONE
+Lentia,NONE
+Bratislava,NONE
+Pressburg,NONE
+Bratislava City,NONE
+Košice,NONE
+Kosice,NONE
+Kassa,NONE
+Cluj-Napoca,NONE
+Cluj,NONE
+Klausenburg,NONE
+Timișoara,NONE
+Timisoara,NONE
+Temesvar,NONE
+Debrecen,NONE
+Debreczen,NONE
+Debrecen City,NONE
+Varazdin,NONE
+Varasd,NONE
+Varazdin City,NONE
+Novi Pazar,NONE
+Novi Pazar City,NONE
+Yeni Pazar,NONE
+Mostar,NONE
+Mostar City,NONE
+Mostarr,NONE
+Maribor East,NONE
+Maribor East,NONE
+Maribor‑E,NONE
+Esbjerg,NONE
+Esbjerg City,NONE
+Esbjerk,NONE
+Aalborg,NONE
+Aalborg City,NONE
+Ålborg,NONE

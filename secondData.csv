@@ -1,0 +1,41 @@
+id,name,country,region,type,aliases,description
+S1,Leeds,United Kingdom,England,City,Leeds City;Leeds UK;Ledes,Major city in West Yorkshire known for finance and culture
+S2,Sheffield,United Kingdom,England,City,Sheffield City;Shef;Sheffeld,Industrial city in South Yorkshire
+S3,Liverpool,United Kingdom,England,City,Liverpool City;Liverpoole;L'pool,Port city famous for The Beatles
+S4,Bristol,United Kingdom,England,City,Bristol City;Brizzle,Harbour city in southwest England
+S5,Newcastle upon Tyne,United Kingdom,England,City,Newcastle;Newcastle City;Geordie City,Historic northern city on the River Tyne
+S6,Leicester,United Kingdom,England,City,Leicester City;Lester,Multicultural city in the East Midlands
+S7,Nottingham,United Kingdom,England,City,Nottingham City;Nottm,City associated with Robin Hood folklore
+S8,Southampton,United Kingdom,England,City,Soton;Southampton City,Port city on the south coast
+S9,Plymouth,United Kingdom,England,City,Plymouth City;Plym,Naval port city in Devon
+S10,Brighton,United Kingdom,England,City,Brighton City;Brighton & Hove,Seaside city known for arts and nightlife
+S11,Lille,France,Hauts-de-France,City,Lille City;Rijsel,Northern French city near Belgian border
+S12,Strasbourg,France,Grand Est,City,Strassburg;Strasbourg City,European Parliament seat with mixed heritage
+S13,Montpellier,France,Occitanie,City,Montpelier;Montpellier City,University city near Mediterranean coast
+S14,Rennes,France,Brittany,City,Roazhon;Rennes City,Capital of Brittany with medieval centre
+S15,Nantes,France,Pays de la Loire,City,Nantes City;Naoned,Historic port city on the Loire River
+S16,Hanover,Germany,Lower Saxony,City,Hannover;Hanover City,Trade fair hub in northern Germany
+S17,Düsseldorf,Germany,North Rhine-Westphalia,City,Dusseldorf;Düsseldorf City,Rhine‑side city known for fashion and art
+S18,Dresden,Germany,Saxony,City,Dresden City;Dresdn,Baroque city rebuilt after WWII
+S19,Leipzig,Germany,Saxony,City,Leipzig City;Lipsk,Major cultural and economic centre in eastern Germany
+S20,Nuremberg,Germany,Bavaria,City,Nürnberg;Nuremberg City,Historic Bavarian city with medieval architecture
+S21,Valle de Bravo,Spain,Community of Madrid,Town,Valle Bravo;V. de Bravo,Mountain town popular for paragliding
+S22,Toledo,Spain,Castilla-La Mancha,City,Toletum;Toledo City,Historic walled city with medieval heritage
+S23,Zaragoza,Spain,Aragon,City,Saragossa;Zaragoza City,City on the Ebro River with Roman history
+S24,Granada,Spain,Andalusia,City,Granada City;Garnata,Home of the Alhambra palace
+S25,Verona,Italy,Veneto,City,Verona City;Veronia,City of Romeo and Juliet
+S26,Parma,Italy,Emilia-Romagna,City,Parma City;Parma IT,City known for food and opera
+S27,Trieste,Italy,Friuli-Venezia Giulia,City,Triest;Trieste City,Port city with Austro‑Hungarian heritage
+S28,Innsbruck,Austria,Tyrol,City,Innsbruck City;Insprugg,Alpine city known for winter sports
+S29,Linz,Austria,Upper Austria,City,Linz City;Lentia,Industrial city on the Danube
+S30,Bratislava,Slovakia,Bratislava,City,Pressburg;Bratislava City,Slovak capital on the Danube
+S31,Košice,Slovakia,Košice,City,Kosice;Kassa,Eastern Slovak cultural centre
+S32,Cluj-Napoca,Romania,Cluj,City,Cluj;Klausenburg,Transylvanian city with universities
+S33,Timișoara,Romania,Timiș,City,Timisoara;Temesvar,Western Romanian city with Austro‑Hungarian roots
+S34,Debrecen,Hungary,Hajdú-Bihar,City,Debreczen;Debrecen City,Hungary’s second‑largest city
+S35,Varazdin,Croatia,Varazdin County,City,Varasd;Varazdin City,Baroque city in northern Croatia
+S36,Novi Pazar,Serbia,Raška,City,Novi Pazar City;Yeni Pazar,Multicultural city with Ottoman heritage
+S37,Mostar,Bosnia and Herzegovina,Herzegovina,City,Mostar City;Mostarr,City famous for Stari Most bridge
+S38,Maribor East,Slovenia,Styria,Town,Maribor East;Maribor‑E,Suburban area near Maribor
+S39,Esbjerg,Denmark,South Denmark,City,Esbjerg City;Esbjerk,Port city on the North Sea
+S40,Aalborg,Denmark,North Denmark,City,Aalborg City;Ålborg,Northern Danish city with Viking roots
